@@ -12,7 +12,7 @@ app.get("/", (req, res) => {
 });
 
 //Property section
-app.post("/api/projects", async (req, res) => {
+app.post("/api/property", async (req, res) => {
   try {
     const projectData = req.body;
     const result = await projectCollection.insertOne(projectData);
@@ -27,6 +27,27 @@ app.post("/api/projects", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Faild to create project",
+    });
+  }
+});
+
+//Property get api
+app.get("/api/property", async (req, res) => {
+  try {
+    const result = await projectCollection.find().toArray();
+
+    res.status(200).json({
+      success: true,
+      message: "Properties fetched successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Failed to fetch properties:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch properties",
+      error: error.message,
     });
   }
 });
