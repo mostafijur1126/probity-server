@@ -57,4 +57,32 @@ app.get("/api/property", async (req, res) => {
   }
 });
 
+//Property get by slug
+app.get("/api/property/:slug", async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    const property = await projectCollection.findOne({ slug });
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: "Property not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: property,
+    });
+  } catch (error) {
+    console.error("Get property by slug error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch property",
+      error: error.message,
+    });
+  }
+});
+
 export default app;
