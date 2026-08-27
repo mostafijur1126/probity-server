@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { projectCollection } from "./config/db.js";
+import { ObjectId } from "mongodb";
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.get("/", (req, res) => {
 });
 
 //Property section
+//add property
 app.post("/api/property", async (req, res) => {
   try {
     const projectData = req.body;
@@ -36,7 +38,7 @@ app.post("/api/property", async (req, res) => {
   }
 });
 
-//Property get api
+//get Property
 app.get("/api/property", async (req, res) => {
   try {
     const result = await projectCollection.find().toArray();
@@ -57,7 +59,7 @@ app.get("/api/property", async (req, res) => {
   }
 });
 
-//Property get by slug
+//get Property by slug
 app.get("/api/property/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
@@ -80,6 +82,36 @@ app.get("/api/property/:slug", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch property",
+      error: error.message,
+    });
+  }
+});
+
+//delete property by id
+app.delete("/api/property/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deleteProperty = await projectCollection.deleteOne({
+      _id: new ObjectId(id),
+    });
+    if (!deleteProperty) {
+      return res.status(404).json({
+        success: false,
+        message: "Property not found",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Property delete successfully",
+      data: deleteProperty,
+    });
+  } catch (error) {
+    console.error("Delete property error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete property",
       error: error.message,
     });
   }
