@@ -5,9 +5,23 @@ import { ObjectId } from "mongodb";
 
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://www.probityreltd.com",
+  "https://probityreltd.com",
+];
+
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   }),
 );
