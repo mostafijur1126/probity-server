@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { inquiryCollection, projectCollection } from "./config/db.js";
 import { ObjectId } from "mongodb";
+import { createRemoteJWKSet, jwtVerify } from "jose-cjs";
 
 const app = express();
 
@@ -27,13 +28,87 @@ app.use(
 );
 app.use(express.json());
 
+//JWT verify
+const JWKS = createRemoteJWKSet(
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
+);
+
+const verifyToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  //No token
+  if (!authHeader) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required. Please login first.",
+      code: "AUTH_REQUIRED",
+    });
+  }
+  //Invalid Authorization format
+  if (!authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid authorization format.",
+      code: "INVALID_AUTH_FORMAT",
+    });
+  }
+
+  const token = authHeader?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication token is missing.",
+      code: "TOKEN_MISSING",
+    });
+  }
+
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+
+    req.user = payload;
+    next();
+  } catch (error) {
+    console.error("JWT verification error:", error);
+
+    return res.status(401).json({
+      success: false,
+      message:
+        "Your session has expired or the token is invalid. Please login again.",
+      code: "INVALID_OR_EXPIRED_TOKEN",
+    });
+  }
+};
+
+//Admin Role Verify
+const adminVerify = async (req, res, next) => {
+  const user = req.user;
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required. Please login first.",
+      code: "AUTH_REQUIRED",
+    });
+  }
+
+  if (user.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Admin permission is required.",
+      code: "ADMIN_ACCESS_REQUIRED",
+    });
+  }
+  next();
+};
+
 app.get("/", (req, res) => {
   res.send("Server Running...");
 });
 
 //Property section
 //add property
-app.post("/api/property", async (req, res) => {
+app.post("/api/property", verifyToken, adminVerify, async (req, res) => {
   try {
     const projectData = req.body;
     const result = await projectCollection.insertOne(projectData);
@@ -137,10 +212,17 @@ app.delete("/api/property/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deleteProperty = await projectCollection.deleteOne({
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid property ID",
+      });
+    }
+
+    const result = await projectCollection.deleteOne({
       _id: new ObjectId(id),
     });
-    if (!deleteProperty) {
+    if (result.deletedCount === 0) {
       return res.status(404).json({
         success: false,
         message: "Property not found",
@@ -149,7 +231,7 @@ app.delete("/api/property/:id", async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Property delete successfully",
-      data: deleteProperty,
+      data: result,
     });
   } catch (error) {
     console.error("Delete property error:", error);
